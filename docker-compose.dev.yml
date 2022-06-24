@@ -1,0 +1,48 @@
+version: "3"
+
+services:
+  mind_tales_db:
+    container_name: "mind_tales_database"
+    image: postgres:13-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=mind_tales_user
+      - POSTGRES_DB=mind_tales_db
+      - POSTGRES_PASSWORD=mind_tales_password
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    expose:
+      - "5432"
+    ports:
+      - "5432:5432"
+    env_file:
+      - ~/.env
+    volumes:
+      - ~/postgres_data:/var/lib/postgresql/data
+ 
+  backend:
+    container_name: "mind_tales"
+    build: ./
+    command: >
+        bash -c "/backend/wait-for.sh mind_tales_db:5432 -t 5000 &&
+                  python manage.py check &&
+                  python manage.py makemigrations &&
+                  python manage.py migrate &&
+                  python manage.py collectstatic --no-input &&
+                  # cat /backend/mind_tales/core/create_user.py | python manage.py shell &&
+                  python /backend/manage.py runserver 0.0.0.0:8000"
+    expose:
+        - 8000
+    environment:
+        - DJANGO_SETTINGS_MODULE=mind_tales.config.base
+        - DJANGO_READ_DOT_ENV_FILE=True
+    env_file:
+        - ~/.env
+    depends_on:
+        - mind_tales_db
+    volumes:
+        - static:/static
+        - aws:/aws
+
+volumes:
+  static: {}
+  aws: {}
